@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  name        String
+  description String?
+  icon        String?
+  parentSlug  String?
+  parent      Category?  @relation("CategoryTree", fields: [parentSlug], references: [slug])
+  children    Category[] @relation("CategoryTree")
+  sortOrder   Int        @default(0)
+  articles    Article[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([parentSlug])
+}
+
+model Article {
+  id           String   @id @default(cuid())
+  title        String
+  slug         String   @unique
+  categorySlug String
+  category     Category @relation(fields: [categorySlug], references: [slug])
+  summary      String?
+  content      Json
+  tags         String[]
+  references   String[]
+  images       String[]
+  searchText   String?
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  relationsFrom ArticleRelation[] @relation("RelFrom")
+  relationsTo   ArticleRelation[] @relation("RelTo")
+
+  @@index([categorySlug])
+}
+
+model ArticleRelation {
+  id            String  @id @default(cuid())
+  fromArticleId String
+  toArticleId   String
+  relationType  String  @default("related")
+  fromArticle   Article @relation("RelFrom", fields: [fromArticleId], references: [id], onDelete: Cascade)
+  toArticle     Article @relation("RelTo", fields: [toArticleId], references: [id], onDelete: Cascade)
+
+  @@unique([fromArticleId, toArticleId])
+}
