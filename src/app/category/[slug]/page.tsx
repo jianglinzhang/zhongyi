@@ -7,6 +7,21 @@ interface Props {
   params: Promise<{ slug: string }>
 }
 
+// 构建时预生成所有分类页面
+export function generateStaticParams() {
+  const slugs: { slug: string }[] = []
+  for (const cat of CATEGORIES) {
+    slugs.push({ slug: cat.slug })
+    for (const child of cat.children) {
+      slugs.push({ slug: child.slug })
+    }
+  }
+  return slugs
+}
+
+// 内容变化时自动重新生成（60秒检查一次）
+export const revalidate = 60
+
 export default async function CategoryPage({ params }: Props) {
   const { slug } = await params
   const category = store.getCategory(slug)

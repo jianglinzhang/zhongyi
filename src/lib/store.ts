@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'fs'
+import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from 'fs'
 import path from 'path'
 import { CATEGORIES } from './categories'
 import { INITIAL_ARTICLES, INITIAL_RELATIONS } from './initial-content'
@@ -45,15 +45,30 @@ function genId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 }
 
-// ===== 缓存（进程级单例） =====
+// ===== 缓存（进程级单例 + 文件修改检测） =====
 const g = globalThis as unknown as {
   _storeCats: StoreCategory[] | null
   _storeArts: StoreArticle[] | null
   _storeRels: StoreRelation[] | null
+  _storeMtimes: Record<string, number>
+}
+if (!g._storeMtimes) g._storeMtimes = {}
+
+function getFileMtime(file: string): number {
+  try { return existsSync(file) ? statSync(file).mtimeMs : 0 } catch { return 0 }
+}
+
+function isCacheStale(file: string): boolean {
+  const current = getFileMtime(file)
+  if (current !== g._storeMtimes[file]) {
+    g._storeMtimes[file] = current
+    return true
+  }
+  return false
 }
 
 function loadCategories(): StoreCategory[] {
-  if (g._storeCats) return g._storeCats
+  if (g._storeCats && !isCacheStale(CATEGORIES_FILE)) return g._storeCats
   const raw = readJson<StoreCategory[]>(CATEGORIES_FILE, [])
   if (raw.length > 0) { g._storeCats = raw; return raw }
   // 首次运行：从 CATEGORIES 常量初始化
@@ -70,9 +85,9 @@ function loadCategories(): StoreCategory[] {
   return cats
 }
 function loadArticles(): StoreArticle[] {
-  if (g._storeArts) return g._storeArts
+  if (g._storeArts && !isCacheStale(ARTICLES_FILE)) return g._storeArts
   const raw = readJson<StoreArticle[]>(ARTICLES_FILE, [])
-  if (raw.length > 0) { g._storeArts = raw; return raw }
+  if (raw.length > 0) { g._storeArts = raw; ensureStartupSync(); return raw }
   // 首次运行：填充基础理论内容
   const now = new Date().toISOString()
   const arts: StoreArticle[] = INITIAL_ARTICLES.map(a => {
@@ -90,10 +105,11 @@ function loadArticles(): StoreArticle[] {
   if (rels.length > 0) writeJson(RELATIONS_FILE, rels)
   g._storeRels = rels
   g._storeArts = arts
+  ensureStartupSync()
   return arts
 }
 function loadRelations(): StoreRelation[] {
-  if (g._storeRels) return g._storeRels
+  if (g._storeRels && !isCacheStale(RELATIONS_FILE)) return g._storeRels
   g._storeRels = readJson<StoreRelation[]>(RELATIONS_FILE, [])
   return g._storeRels
 }
@@ -103,11 +119,23 @@ function saveRels(rels: StoreRelation[]) { g._storeRels = rels; writeJson(RELATI
 
 // ===== 同步调度 =====
 let syncTimer: ReturnType<typeof setTimeout> | null = null
+let startupSynced = false
+
 function scheduleSync() {
   if (syncTimer) clearTimeout(syncTimer)
   syncTimer = setTimeout(() => {
     import('./sync').then(m => m.performSync()).catch(() => {})
   }, 3000)
+}
+
+// 启动时首次同步（应用加载后自动将本地数据推送到 DB/S3）
+function ensureStartupSync() {
+  if (startupSynced) return
+  startupSynced = true
+  // 延迟 5 秒执行，让应用先完成启动
+  setTimeout(() => {
+    import('./sync').then(m => m.performSync()).catch(() => {})
+  }, 5000)
 }
 
 // ===== 辅助：给文章附加分类信息 =====

@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { CATEGORIES } from '@/lib/categories'
 import { store } from '@/lib/store'
 
+export const revalidate = 60
+
 export default async function HomePage() {
   const articleCount = store.articleCount()
   const categoryCount = store.categoryCount()

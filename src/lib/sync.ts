@@ -28,7 +28,28 @@ async function syncToDatabase() {
   if (!process.env.DATABASE_URL) return
   try {
     const { PrismaClient } = await import('@prisma/client')
-    const prisma = new PrismaClient()
+    // Neon 等云数据库可能带 channel_binding 等不支持的参数，自动清理
+    let dbUrl = process.env.DATABASE_URL
+    try {
+      const u = new URL(dbUrl)
+      u.searchParams.delete('channel_binding')
+      if (!u.searchParams.has('sslmode') && dbUrl.includes('neon.tech')) {
+        u.searchParams.set('sslmode', 'require')
+      }
+      dbUrl = u.toString()
+    } catch {}
+    const prisma = new PrismaClient({ datasources: { db: { url: dbUrl } } })
+
+    // 先尝试推送 schema（确保远程数据库有表结构）
+    try {
+      const { execSync } = await import('child_process')
+      execSync(`npx prisma db push --skip-generate --accept-data-loss`, {
+        env: { ...process.env, DATABASE_URL: dbUrl },
+        stdio: 'pipe',
+        timeout: 30000,
+      })
+    } catch {}
+
     const { store } = await import('./store')
 
     // 同步分类

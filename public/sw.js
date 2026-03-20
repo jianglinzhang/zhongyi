@@ -20,18 +20,23 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url)
 
+  // 只缓存 http/https 请求，忽略扩展等其他协议
+  if (!url.protocol.startsWith('http')) return
+
   // API请求不缓存
   if (url.pathname.startsWith('/api/')) return
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      const fetchPromise = fetch(event.request).then((response) => {
-        if (response.ok) {
-          const clone = response.clone()
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone))
-        }
-        return response
-      })
+      const fetchPromise = fetch(event.request)
+        .then((response) => {
+          if (response.ok && response.type === 'basic') {
+            const clone = response.clone()
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone))
+          }
+          return response
+        })
+        .catch(() => cached)
       return cached || fetchPromise
     })
   )

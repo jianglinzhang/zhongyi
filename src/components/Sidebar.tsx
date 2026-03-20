@@ -29,7 +29,8 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="hidden w-64 shrink-0 overflow-y-auto border-r border-gray-200 bg-white/60 p-4 dark:border-gray-800 dark:bg-gray-900/50 md:block">
+    <aside className="hidden w-64 shrink-0 md:block">
+      <div className="sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto border-r border-gray-200 bg-white/60 p-4 dark:border-gray-800 dark:bg-gray-900/50">
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
         知识分类
       </h2>
@@ -90,6 +91,7 @@ export function Sidebar() {
           )
         })}
       </nav>
+      </div>
     </aside>
   )
 }
