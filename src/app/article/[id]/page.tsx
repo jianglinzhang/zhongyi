@@ -8,6 +8,8 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
+export const revalidate = 60
+
 export default async function ArticlePage({ params }: Props) {
   const { id } = await params
   const article = store.getArticle(decodeURIComponent(id))
@@ -18,6 +20,8 @@ export default async function ArticlePage({ params }: Props) {
     ...article.relationsFrom.map((r: any) => r.toArticle),
     ...article.relationsTo.map((r: any) => r.fromArticle),
   ]
+
+  const neighbors = store.getArticleNeighbors(article.slug)
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -80,6 +84,40 @@ export default async function ArticlePage({ params }: Props) {
             ))}
           </ul>
         </section>
+      )}
+
+      {/* 上一篇 / 下一篇 */}
+      {(neighbors.prev || neighbors.next) && (
+        <nav className="mb-8 border-t border-gray-200 pt-6 dark:border-gray-800">
+          <div className="flex justify-between gap-4">
+            {neighbors.prev ? (
+              <Link
+                href={`/article/${neighbors.prev.slug}`}
+                className="group flex min-w-0 flex-1 flex-col rounded-lg border border-gray-200 px-4 py-3 transition hover:border-zhongyi-300 dark:border-gray-800 dark:hover:border-zhongyi-700"
+              >
+                <span className="text-xs text-gray-400">上一篇</span>
+                <span className="truncate text-sm text-gray-900 group-hover:text-zhongyi-600 dark:text-gray-100 dark:group-hover:text-zhongyi-400">
+                  {neighbors.prev.title}
+                </span>
+              </Link>
+            ) : (
+              <div className="flex-1" />
+            )}
+            {neighbors.next ? (
+              <Link
+                href={`/article/${neighbors.next.slug}`}
+                className="group flex min-w-0 flex-1 flex-col items-end rounded-lg border border-gray-200 px-4 py-3 text-right transition hover:border-zhongyi-300 dark:border-gray-800 dark:hover:border-zhongyi-700"
+              >
+                <span className="text-xs text-gray-400">下一篇</span>
+                <span className="truncate text-sm text-gray-900 group-hover:text-zhongyi-600 dark:text-gray-100 dark:group-hover:text-zhongyi-400">
+                  {neighbors.next.title}
+                </span>
+              </Link>
+            ) : (
+              <div className="flex-1" />
+            )}
+          </div>
+        </nav>
       )}
 
       {/* 关联内容 */}

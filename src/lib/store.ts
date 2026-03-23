@@ -365,6 +365,23 @@ export const store = {
     saveRels(rels)
   },
 
+  // --- 同分类上下篇导航 ---
+  getArticleNeighbors(slug: string) {
+    const arts = loadArticles()
+    const art = arts.find(a => a.slug === slug)
+    if (!art) return { prev: null, next: null }
+
+    const siblings = arts
+      .filter(a => a.categorySlug === art.categorySlug)
+      .sort((a, b) => a.sortOrder - b.sortOrder || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
+    const idx = siblings.findIndex(a => a.slug === slug)
+    return {
+      prev: idx > 0 ? { title: siblings[idx - 1].title, slug: siblings[idx - 1].slug } : null,
+      next: idx < siblings.length - 1 ? { title: siblings[idx + 1].title, slug: siblings[idx + 1].slug } : null,
+    }
+  },
+
   // --- 知识图谱 ---
   getGraphData(category?: string) {
     let arts = loadArticles()

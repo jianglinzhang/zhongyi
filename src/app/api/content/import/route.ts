@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { store } from '@/lib/store'
 import { checkAuth } from '@/lib/auth'
 import type { ContentBlock, CreateArticleRequest } from '@/types'
@@ -112,6 +113,11 @@ export async function POST(req: NextRequest) {
       } catch (error: unknown) {
         results.errors.push({ index: i, error: error instanceof Error ? error.message : '未知错误' })
       }
+    }
+
+    // 立即刷新缓存页面
+    if (results.success.length > 0) {
+      revalidatePath('/', 'layout')
     }
 
     return NextResponse.json({

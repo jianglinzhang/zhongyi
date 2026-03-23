@@ -2,9 +2,13 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { store } from '@/lib/store'
 import { CATEGORIES } from '@/lib/categories'
+import { Pagination } from '@/components/Pagination'
+
+const PAGE_SIZE = 20
 
 interface Props {
   params: Promise<{ slug: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
 // 构建时预生成所有分类页面
@@ -22,8 +26,10 @@ export function generateStaticParams() {
 // 内容变化时自动重新生成（60秒检查一次）
 export const revalidate = 60
 
-export default async function CategoryPage({ params }: Props) {
+export default async function CategoryPage({ params, searchParams }: Props) {
   const { slug } = await params
+  const { page: pageStr } = await searchParams
+  const page = Math.max(1, parseInt(pageStr as string) || 1)
   const category = store.getCategory(slug)
 
   if (!category) {
@@ -70,6 +76,24 @@ export default async function CategoryPage({ params }: Props) {
     )
   }
 
+  const hasChildren = category.children.length > 0
+
+  // 叶子分类：分页加载文章
+  let articles: any[] = []
+  let totalArticles = 0
+  let totalPages = 1
+
+  if (!hasChildren) {
+    const result = store.listArticles({
+      categorySlug: slug,
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    })
+    articles = result.articles
+    totalArticles = result.total
+    totalPages = Math.ceil(totalArticles / PAGE_SIZE)
+  }
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <nav className="mb-6 text-sm text-gray-500">
@@ -91,7 +115,8 @@ export default async function CategoryPage({ params }: Props) {
         <p className="mb-6 text-gray-500 dark:text-gray-400">{category.description}</p>
       )}
 
-      {category.children.length > 0 && (
+      {/* 有子分类时只显示子分类，不显示内容列表 */}
+      {hasChildren && (
         <section className="mb-8">
           <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">子分类</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -109,13 +134,14 @@ export default async function CategoryPage({ params }: Props) {
         </section>
       )}
 
-      {category.articles.length > 0 ? (
+      {/* 叶子分类：分页显示内容列表 */}
+      {!hasChildren && articles.length > 0 && (
         <section>
           <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">
-            内容列表 ({category._count.articles})
+            内容列表 ({totalArticles})
           </h2>
           <div className="space-y-2">
-            {category.articles.map((article: any) => (
+            {articles.map((article: any) => (
               <Link
                 key={article.id}
                 href={`/article/${article.slug}`}
@@ -137,13 +163,14 @@ export default async function CategoryPage({ params }: Props) {
               </Link>
             ))}
           </div>
+          <Pagination currentPage={page} totalPages={totalPages} basePath={`/category/${slug}`} />
         </section>
-      ) : (
-        category.children.length === 0 && (
-          <div className="rounded-lg border-2 border-dashed border-gray-300 p-6 text-center dark:border-gray-700">
-            <p className="text-gray-500">该分类暂无内容</p>
-          </div>
-        )
+      )}
+
+      {!hasChildren && articles.length === 0 && (
+        <div className="rounded-lg border-2 border-dashed border-gray-300 p-6 text-center dark:border-gray-700">
+          <p className="text-gray-500">该分类暂无内容</p>
+        </div>
       )}
     </div>
   )

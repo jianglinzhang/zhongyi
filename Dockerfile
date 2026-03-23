@@ -9,13 +9,15 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npx prisma generate && npm run build
+RUN apk add --no-cache openssl && npx prisma generate && npm run build
 
 # ---- 运行 ----
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV DATA_DIR=/data
+
+RUN apk add --no-cache openssl
 
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/next.config.mjs ./

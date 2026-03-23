@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { store } from '@/lib/store'
 import { checkAuth } from '@/lib/auth'
 import type { ContentBlock } from '@/types'
@@ -59,6 +60,9 @@ export async function POST(req: NextRequest) {
         store.upsertRelation(article.id, related.id, 'related')
       }
     }
+
+    // 立即刷新缓存页面
+    revalidatePath('/', 'layout')
 
     return NextResponse.json(article, { status: 201 })
   } catch (error: unknown) {
